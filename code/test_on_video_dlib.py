@@ -19,23 +19,21 @@ import datasets, hopenet, utils
 from skimage import io
 import dlib
 
-
 def parse_args():
     """Parse input arguments."""
     parser = argparse.ArgumentParser(description='Head pose estimation using the Hopenet network.')
     parser.add_argument('--gpu', dest='gpu_id', help='GPU device id to use [0]',
-                        default=0, type=int)
+            default=0, type=int)
     parser.add_argument('--snapshot', dest='snapshot', help='Path of model snapshot.',
-                        default='', type=str)
+          default='', type=str)
     parser.add_argument('--face_model', dest='face_model', help='Path of DLIB face detection model.',
-                        default='', type=str)
+          default='', type=str)
     parser.add_argument('--video', dest='video_path', help='Path of video')
     parser.add_argument('--output_string', dest='output_string', help='String appended to output file')
     parser.add_argument('--n_frames', dest='n_frames', help='Number of frames', type=int)
     parser.add_argument('--fps', dest='fps', help='Frames per second of source video', type=float, default=30.)
     args = parser.parse_args()
     return args
-
 
 if __name__ == '__main__':
     args = parse_args()
@@ -60,33 +58,33 @@ if __name__ == '__main__':
     # Dlib face detection model
     cnn_face_detector = dlib.cnn_face_detection_model_v1(args.face_model)
 
-    print('Loading snapshot.')
+    print 'Loading snapshot.'
     # Load snapshot
     saved_state_dict = torch.load(snapshot_path)
     model.load_state_dict(saved_state_dict)
 
-    print('Loading data.')
+    print 'Loading data.'
 
     transformations = transforms.Compose([transforms.Scale(224),
-                                          transforms.CenterCrop(224), transforms.ToTensor(),
-                                          transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    transforms.CenterCrop(224), transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
     model.cuda(gpu)
 
-    print('Ready to test network.')
+    print 'Ready to test network.'
 
     # Test the Model
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
     total = 0
 
-    idx_tensor = [idx for idx in range(66)]
+    idx_tensor = [idx for idx in xrange(66)]
     idx_tensor = torch.FloatTensor(idx_tensor).cuda(gpu)
 
     video = cv2.VideoCapture(video_path)
 
     # New cv2
-    width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))  # float
-    height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))  # float
+    width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))   # float
+    height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT)) # float
 
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
@@ -105,24 +103,24 @@ if __name__ == '__main__':
     frame_num = 1
 
     while frame_num <= args.n_frames:
-        print(frame_num)
+        print frame_num
 
-        ret, frame = video.read()
+        ret,frame = video.read()
         if ret == False:
             break
 
-        cv2_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        cv2_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
 
         # Dlib detect
         dets = cnn_face_detector(cv2_frame, 1)
 
         for idx, det in enumerate(dets):
             # Get x_min, y_min, x_max, y_max, conf
-            x_min = int(det.rect.left())
-            y_min = int(det.rect.top())
-            x_max = int(det.rect.right())
-            y_max = int(det.rect.bottom())
-            conf = int(det.confidence)
+            x_min = det.rect.left()
+            y_min = det.rect.top()
+            x_max = det.rect.right()
+            y_max = det.rect.bottom()
+            conf = det.confidence
 
             if conf > 1.0:
                 bbox_width = abs(x_max - x_min)
@@ -131,12 +129,10 @@ if __name__ == '__main__':
                 x_max += 2 * bbox_width / 4
                 y_min -= 3 * bbox_height / 4
                 y_max += bbox_height / 4
-                x_min = max(x_min, 0);
-                y_min = max(y_min, 0)
-                x_max = min(frame.shape[1], x_max);
-                y_max = min(frame.shape[0], y_max)
+                x_min = max(x_min, 0); y_min = max(y_min, 0)
+                x_max = min(frame.shape[1], x_max); y_max = min(frame.shape[0], y_max)
                 # Crop image
-                img = cv2_frame[y_min:y_max, x_min:x_max]
+                img = cv2_frame[y_min:y_max,x_min:x_max]
                 img = Image.fromarray(img)
 
                 # Transform
@@ -158,8 +154,7 @@ if __name__ == '__main__':
                 # Print new frame with cube and axis
                 txt_out.write(str(frame_num) + ' %f %f %f\n' % (yaw_predicted, pitch_predicted, roll_predicted))
                 # utils.plot_pose_cube(frame, yaw_predicted, pitch_predicted, roll_predicted, (x_min + x_max) / 2, (y_min + y_max) / 2, size = bbox_width)
-                utils.draw_axis(frame, yaw_predicted, pitch_predicted, roll_predicted, tdx=(x_min + x_max) / 2,
-                                tdy=(y_min + y_max) / 2, size=bbox_height / 2)
+                utils.draw_axis(frame, yaw_predicted, pitch_predicted, roll_predicted, tdx = (x_min + x_max) / 2, tdy= (y_min + y_max) / 2, size = bbox_height/2)
                 # Plot expanded bounding box
                 # cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0,255,0), 1)
 
